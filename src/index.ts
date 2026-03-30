@@ -2,11 +2,12 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import { createBot } from './bot.ts';
 import { createLLMService } from './llm.ts';
+import { addMessage } from './db.ts';
 
 const bot = createBot();
 const llm = createLLMService();
 
-llm.chat('Hola, estoy despierto?').then((res) => console.log('[OpenRouter Test]', res));
+llm.chat('Hola?')
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -14,7 +15,9 @@ bot.on('message', async (msg) => {
 
   if (!text || !text.startsWith('/')) {
     try {
+      addMessage('user', text!, msg.date);
       const response = await llm.chat(text as string);
+      addMessage('assistant', response, Math.floor(Date.now() / 1000));
       await bot.sendMessage(chatId, response);
     } catch (error) {
       console.error('LLM Error:', error);
@@ -23,7 +26,7 @@ bot.on('message', async (msg) => {
   }
 });
 
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({ logger: false });
 
 fastify.post(`/bot${process.env.TELEGRAM_TOKEN}`, async (request, reply) => {
   const body = request.body as any;
