@@ -10,6 +10,9 @@ dist
 coverage
 *.lcov
 
+# locks
+bun.lock
+
 # logs
 logs
 _.log
