@@ -84,7 +84,7 @@ export class BotService implements OnModuleInit {
 
     await this.messagesService.saveMessage('user', text);
 
-    const history = await this.messagesService.getLastMessages(6);
+    const history = await this.messagesService.getLastMessages(10);
     const historyFormatted = history.map((m) => ({
       role: m.role,
       content: m.content,
@@ -114,7 +114,7 @@ export class BotService implements OnModuleInit {
       const buffer = Buffer.from(arrayBuffer);
       const base64 = buffer.toString('base64');
 
-      const history = await this.messagesService.getLastMessages(6);
+      const history = await this.messagesService.getLastMessages(10);
       const historyFormatted = history.map((m) => ({
         role: m.role,
         content: m.content,
@@ -159,7 +159,7 @@ export class BotService implements OnModuleInit {
 
       await this.messagesService.saveMessage('user', '[Audio]');
 
-      const history = await this.messagesService.getLastMessages(6);
+      const history = await this.messagesService.getLastMessages(10);
       const historyFormatted = history.map((m) => ({
         role: m.role,
         content: m.content,
