@@ -8,6 +8,9 @@ package-lock.json
 bun.lock
 pnpm-lock.yaml
 
+# db
+db.sqlite
+
 # Logs
 logs
 *.log

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import TelegramBot from 'node-telegram-bot-api';
 import { LlmService } from '../llm/llm.service';
@@ -13,7 +13,8 @@ interface TelegramUpdate {
 }
 
 @Injectable()
-export class BotService {
+export class BotService implements OnModuleInit {
+  private readonly logger = new Logger(BotService.name);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private bot: any;
 
@@ -22,28 +23,36 @@ export class BotService {
     private llmService: LlmService,
     private messagesService: MessagesService,
   ) {
-    this.bot = new TelegramBot(
-      this.configService.get<string>('TELEGRAM_TOKEN'),
-      {
-        polling: true,
-      },
-    );
+    const token = this.configService.get<string>('TELEGRAM_TOKEN');
+    this.logger.log(`Initializing bot with token: ${token ? '✓' : '✗'}`);
+    this.bot = new TelegramBot(token);
 
     this.bot.on('message', (msg: any) => {
-      this.handleUpdate(msg);
+      this.handleMessage(msg);
+    });
+
+    this.bot.on('polling_error', (err: any) => {
+      this.logger.error('Polling error:', err.message);
     });
   }
 
-  async handleUpdate(update: TelegramUpdate): Promise<void> {
-    const message = update.message;
-    if (!message) return;
+  async onModuleInit() {
+    this.logger.log('Starting polling...');
+    this.bot.startPolling();
+    this.logger.log('Testing OpenRouter connection...');
+    const { response } = await this.llmService.chat('Hola, responde solo "ok" si me escuchas.', []);
+    this.logger.log(`OpenRouter response: ${response}`);
+  }
 
-    const text = message.text;
+  async handleMessage(msg: any): Promise<void> {
+    const text = msg.text;
     if (!text) return;
 
-    if (message.entities?.some((e) => e.type === 'bot_command')) return;
+    if (msg.entities?.some((e: any) => e.type === 'bot_command')) return;
 
-    const chatId = message.chat.id;
+    this.logger.log(`Received: ${text}`);
+
+    const chatId = msg.chat.id;
 
     await this.messagesService.saveMessage('user', text);
 

@@ -13,11 +13,13 @@ import { LlmCost } from './database/entities/llm-cost.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: 'db.sqlite',
-      entities: [Message, LlmCost],
-      synchronize: true,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'sqlite',
+        database: process.env.DB_PATH ?? 'db.sqlite',
+        entities: [Message, LlmCost],
+        synchronize: true,
+      }),
     }),
     DatabaseModule,
     BotModule,
