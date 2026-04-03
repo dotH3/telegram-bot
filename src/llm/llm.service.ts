@@ -57,6 +57,114 @@ export class LlmService {
         0.00001
       : 0;
 
+    await this.saveCost(cost);
+
+    return { response, cost };
+  }
+
+  async chatWithImage(
+    imageBase64: string,
+    message: string,
+    withHistory: ChatMessage[],
+  ): Promise<{ response: string; cost: number }> {
+    const model = this.configService.get<string>(
+      'OPENROUTER_MODEL',
+      'openai/gpt-4o-mini',
+    );
+
+    const systemPrompt =
+      'Eres un asistente conversacional. Respondes en español de forma natural y directa. Analiza la imagen proporcionada y responde accordingly. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
+
+    const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      ...withHistory.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: imageUrl } },
+          { type: 'text', text: message || '¿Qué ves en esta imagen?' },
+        ],
+      },
+    ];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completion = await this.openai.chat.completions.create({
+      model,
+      messages: messages as any,
+    });
+
+    const response = completion.choices[0]?.message?.content ?? '';
+    const cost = completion.usage
+      ? (completion.usage.prompt_tokens + completion.usage.completion_tokens) *
+        0.00001
+      : 0;
+
+    await this.saveCost(cost);
+
+    return { response, cost };
+  }
+
+  async chatWithAudio(
+    audioBase64: string,
+    mimeType: string,
+    message: string,
+    withHistory: ChatMessage[],
+  ): Promise<{ response: string; cost: number }> {
+    const model = this.configService.get<string>(
+      'OPENROUTER_MODEL',
+      'openai/gpt-4o-mini',
+    );
+
+    const systemPrompt =
+      'Eres un asistente conversacional. Respondes en español de forma natural y directa. Escucha el audio proporcionado y responde al usuario. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
+
+    const audioPart = {
+      type: 'input_audio',
+      input_audio: {
+        data: audioBase64,
+        format: mimeType.includes('ogg') ? 'ogg' : 'mp3',
+      },
+    };
+
+    const contentParts: any[] = [audioPart];
+    if (message) {
+      contentParts.push({ type: 'text', text: message });
+    }
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...withHistory.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+      {
+        role: 'user',
+        content: contentParts,
+      },
+    ];
+
+    const completion = await this.openai.chat.completions.create({
+      model,
+      messages,
+    });
+
+    const response = completion.choices[0]?.message?.content ?? '';
+    const cost = completion.usage
+      ? (completion.usage.prompt_tokens + completion.usage.completion_tokens) *
+        0.00001
+      : 0;
+
+    await this.saveCost(cost);
+
+    return { response, cost };
+  }
+
+  private async saveCost(cost: number): Promise<void> {
     const existingCost = await this.llmCostRepository.findOne({
       where: { id: 1 },
     });
@@ -66,7 +174,5 @@ export class LlmService {
     } else {
       await this.llmCostRepository.save({ cost });
     }
-
-    return { response, cost };
   }
 }

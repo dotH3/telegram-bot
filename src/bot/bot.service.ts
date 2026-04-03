@@ -4,18 +4,10 @@ import TelegramBot from 'node-telegram-bot-api';
 import { LlmService } from '../llm/llm.service';
 import { MessagesService } from '../messages/messages.service';
 
-interface TelegramUpdate {
-  message?: {
-    text?: string;
-    chat: { id: number };
-    entities?: Array<{ type: string }>;
-  };
-}
-
 @Injectable()
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   private bot: any;
 
   constructor(
@@ -40,19 +32,55 @@ export class BotService implements OnModuleInit {
     this.logger.log('Starting polling...');
     this.bot.startPolling();
     this.logger.log('Testing OpenRouter connection...');
-    const { response } = await this.llmService.chat('Hola, responde solo "ok" si me escuchas.', []);
+    const { response } = await this.llmService.chat(
+      'Hola, responde solo "ok" si me escuchas.',
+      [],
+    );
     this.logger.log(`OpenRouter response: ${response}`);
   }
 
+  private getSenderInfo(msg: any): string {
+    const from = msg.from;
+    if (!from) return 'unknown';
+    const parts = [`id=${from.id}`];
+    if (from.username) parts.push(`@${from.username}`);
+    if (from.first_name) parts.push(from.first_name);
+    return parts.join(', ');
+  }
+
+  private isWhitelisted(msg: any): boolean {
+    const whitelist = this.configService.get<string>('WHITELIST') || '';
+    const allowedIds = whitelist.split(',').map((id) => id.trim());
+    const userId = String(msg.from?.id);
+    return allowedIds.includes(userId);
+  }
+
   async handleMessage(msg: any): Promise<void> {
+    const chatId = msg.chat.id;
+    const senderInfo = this.getSenderInfo(msg);
+
+    if (!this.isWhitelisted(msg)) {
+      this.logger.warn(`Blocked message from [${senderInfo}]: not in whitelist`);
+      await this.bot.sendMessage(chatId, 'x');
+      return;
+    }
+
+    if (msg.photo && msg.photo.length > 0) {
+      await this.handlePhoto(msg);
+      return;
+    }
+
+    if (msg.voice || msg.audio) {
+      await this.handleAudio(msg);
+      return;
+    }
+
     const text = msg.text;
     if (!text) return;
 
     if (msg.entities?.some((e: any) => e.type === 'bot_command')) return;
 
-    this.logger.log(`Received: ${text}`);
-
-    const chatId = msg.chat.id;
+    this.logger.log(`Received text from [${senderInfo}]: ${text}`);
 
     await this.messagesService.saveMessage('user', text);
 
@@ -67,5 +95,88 @@ export class BotService implements OnModuleInit {
     await this.messagesService.saveMessage('assistant', response);
 
     await this.bot.sendMessage(chatId, response);
+  }
+
+  private async handlePhoto(msg: any): Promise<void> {
+    const chatId = msg.chat.id;
+    const photo = msg.photo[msg.photo.length - 1];
+
+    this.logger.log(`Received photo from [${this.getSenderInfo(msg)}]: ${photo.file_id}`);
+
+    await this.bot.sendMessage(chatId, 'Procesando imagen...');
+
+    try {
+      const file = await this.bot.getFile(photo.file_id);
+      const fileUrl = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+
+      const response = await fetch(fileUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64 = buffer.toString('base64');
+
+      const history = await this.messagesService.getLastMessages(6);
+      const historyFormatted = history.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const caption = msg.caption || '¿Qué ves en esta imagen?';
+      await this.messagesService.saveMessage('user', `[Imagen] ${caption}`);
+
+      const { response: llmResponse } = await this.llmService.chatWithImage(
+        base64,
+        caption,
+        historyFormatted,
+      );
+
+      await this.messagesService.saveMessage('assistant', llmResponse);
+      await this.bot.sendMessage(chatId, llmResponse);
+    } catch (error) {
+      this.logger.error('Error processing photo:', error);
+      await this.bot.sendMessage(chatId, 'Error al procesar la imagen.');
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async handleAudio(msg: any): Promise<void> {
+    const chatId = msg.chat.id;
+    const fileId = msg.voice?.file_id || msg.audio?.file_id;
+    const mimeType =
+      msg.voice?.mime_type || msg.audio?.mime_type || 'audio/ogg';
+
+    this.logger.log(`Received audio from [${this.getSenderInfo(msg)}]: ${fileId}`);
+
+    await this.bot.sendMessage(chatId, 'Procesando audio...');
+
+    try {
+      const file = await this.bot.getFile(fileId);
+      const fileUrl = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+
+      const response = await fetch(fileUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64 = buffer.toString('base64');
+
+      await this.messagesService.saveMessage('user', '[Audio]');
+
+      const history = await this.messagesService.getLastMessages(6);
+      const historyFormatted = history.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { response: llmResponse } = await this.llmService.chatWithAudio(
+        base64,
+        mimeType,
+        '',
+        historyFormatted,
+      );
+
+      await this.messagesService.saveMessage('assistant', llmResponse);
+      await this.bot.sendMessage(chatId, llmResponse);
+    } catch (error) {
+      this.logger.error('Error processing audio:', error);
+      await this.bot.sendMessage(chatId, 'Error al procesar el audio.');
+    }
   }
 }
