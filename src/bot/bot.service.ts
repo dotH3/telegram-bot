@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import TelegramBot from 'node-telegram-bot-api';
 import { LlmService } from '../llm/llm.service';
@@ -14,24 +14,27 @@ interface TelegramUpdate {
 
 @Injectable()
 export class BotService {
-  private bot: TelegramBot;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private bot: any;
 
   constructor(
     private configService: ConfigService,
     private llmService: LlmService,
     private messagesService: MessagesService,
   ) {
-    this.bot = new TelegramBot(this.configService.get<string>('TELEGRAM_TOKEN'), {
-      polling: false,
+    this.bot = new TelegramBot(
+      this.configService.get<string>('TELEGRAM_TOKEN'),
+      {
+        polling: true,
+      },
+    );
+
+    this.bot.on('message', (msg: any) => {
+      this.handleUpdate(msg);
     });
   }
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
-    const token = this.configService.get<string>('TELEGRAM_TOKEN');
-    if (!token) {
-      throw new UnauthorizedException('TELEGRAM_TOKEN not configured');
-    }
-
     const message = update.message;
     if (!message) return;
 
@@ -45,16 +48,15 @@ export class BotService {
     await this.messagesService.saveMessage('user', text);
 
     const history = await this.messagesService.getLastMessages(6);
-    const historyFormatted = history.map((m) => ({ role: m.role, content: m.content }));
+    const historyFormatted = history.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
     const { response } = await this.llmService.chat(text, historyFormatted);
 
     await this.messagesService.saveMessage('assistant', response);
 
     await this.bot.sendMessage(chatId, response);
-  }
-
-  async sendMessage(chatId: number, text: string): Promise<void> {
-    await this.bot.sendMessage(chatId, text);
   }
 }
