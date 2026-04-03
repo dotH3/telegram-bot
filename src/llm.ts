@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { getLastMessages, addCost } from './db.ts';
 
 export function createLLMService() {
   const client = new OpenAI({
@@ -7,23 +8,31 @@ export function createLLMService() {
   });
 
   const model = process.env.OPENROUTER_MODEL!;
-  const api_key = process.env.OPENROUTER_API_KEY;
 
   return {
-    async chat(message: string): Promise<string> {
+    async chat(message: string, withHistory: boolean = false): Promise<string> {
       console.log('[User]', message);
       try {
+        const history = withHistory
+          ? getLastMessages(6).map((m) => ({ role: m.role, content: m.content }))
+          : [];
+
         const response = await client.chat.completions.create({
           model: model,
           messages: [
-            { role: 'system', content: 'Responde de forma directa y concisa. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente. No uses listas con guiones ni numeración salvo que sea estrictamente necesario. Ve al punto, sin saludos ni despedidas.' },
+            { role: 'system', content: 'Eres un asistente conversacional. Responde de forma natural y directa, como en una conversación normal. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.' },
+            ...history,
             { role: 'user', content: message },
           ],
         });
 
         const text = response.choices[0]?.message?.content || 'No response';
         console.log('[Bot]', text);
-        return text
+
+        const cost = (response as any).usage?.cost;
+        if (typeof cost === 'number') addCost(cost);
+
+        return text;
       } catch (error) {
         console.error('[OpenRouter] Error:', error);
         throw error;

@@ -16,6 +16,13 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS llm_cost (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    cost REAL    NOT NULL
+  )
+`);
+
 export interface MessageEntry {
   id: number;
   role: "user" | "assistant";
@@ -29,4 +36,17 @@ export function addMessage(role: "user" | "assistant", content: string, date: nu
 
 export function getMessages(): MessageEntry[] {
   return db.query("SELECT id, role, content, date FROM messages ORDER BY id").all() as MessageEntry[];
+}
+
+export function getLastMessages(limit: number): MessageEntry[] {
+  return db.query("SELECT id, role, content, date FROM messages ORDER BY id DESC LIMIT ?").all(limit).reverse() as MessageEntry[];
+}
+
+export function addCost(cost: number): void {
+  db.run("INSERT INTO llm_cost (cost) VALUES (?)", [cost]);
+}
+
+export function getTotalCost(): number {
+  const row = db.query("SELECT SUM(cost) as total FROM llm_cost").get() as { total: number | null };
+  return row.total ?? 0;
 }

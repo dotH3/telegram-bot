@@ -15,8 +15,8 @@ bot.on('message', async (msg) => {
 
   if (!text || !text.startsWith('/')) {
     try {
+      const response = await llm.chat(text as string, true);
       addMessage('user', text!, msg.date);
-      const response = await llm.chat(text as string);
       addMessage('assistant', response, Math.floor(Date.now() / 1000));
       await bot.sendMessage(chatId, response);
     } catch (error) {
