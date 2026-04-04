@@ -55,6 +55,36 @@ export class BotService implements OnModuleInit {
     return allowedIds.includes(userId);
   }
 
+  private extractReplyContext(msg: any): string | undefined {
+    if (!msg.reply_to_message) {
+      return undefined;
+    }
+
+    const replyMsg = msg.reply_to_message;
+    
+    // Extract text from the replied message
+    if (replyMsg.text) {
+      return replyMsg.text;
+    }
+    
+    // Extract caption if it's a photo
+    if (replyMsg.photo && replyMsg.caption) {
+      return `[Imagen] ${replyMsg.caption}`;
+    }
+    
+    // If it's a photo without caption
+    if (replyMsg.photo) {
+      return '[Imagen]';
+    }
+    
+    // If it's a voice or audio message
+    if (replyMsg.voice || replyMsg.audio) {
+      return '[Audio]';
+    }
+    
+    return undefined;
+  }
+
   async handleMessage(msg: any): Promise<void> {
     const chatId = msg.chat.id;
     const senderInfo = this.getSenderInfo(msg);
@@ -92,7 +122,10 @@ export class BotService implements OnModuleInit {
       content: m.content,
     }));
 
-    const { response } = await this.llmService.chat(text, historyFormatted);
+    // Extract reply context if this message is a reply
+    const replyContext = this.extractReplyContext(msg);
+
+    const { response } = await this.llmService.chat(text, historyFormatted, replyContext);
 
     await this.messagesService.saveMessage('assistant', response);
 
@@ -127,10 +160,14 @@ export class BotService implements OnModuleInit {
       const caption = msg.caption || '¿Qué ves en esta imagen?';
       await this.messagesService.saveMessage('user', `[Imagen] ${caption}`);
 
+      // Extract reply context if this message is a reply
+      const replyContext = this.extractReplyContext(msg);
+
       const { response: llmResponse } = await this.llmService.chatWithImage(
         base64,
         caption,
         historyFormatted,
+        replyContext,
       );
 
       await this.messagesService.saveMessage('assistant', llmResponse);
@@ -170,11 +207,15 @@ export class BotService implements OnModuleInit {
         content: m.content,
       }));
 
+      // Extract reply context if this message is a reply
+      const replyContext = this.extractReplyContext(msg);
+
       const { response: llmResponse } = await this.llmService.chatWithAudio(
         base64,
         mimeType,
         '',
         historyFormatted,
+        replyContext,
       );
 
       await this.messagesService.saveMessage('assistant', llmResponse);
