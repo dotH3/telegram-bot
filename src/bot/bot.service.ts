@@ -60,7 +60,9 @@ export class BotService implements OnModuleInit {
     const senderInfo = this.getSenderInfo(msg);
 
     if (!this.isWhitelisted(msg)) {
-      this.logger.warn(`Blocked message from [${senderInfo}]: not in whitelist`);
+      this.logger.warn(
+        `Blocked message from [${senderInfo}]: not in whitelist`,
+      );
       await this.bot.sendMessage(chatId, 'x');
       return;
     }
@@ -101,7 +103,9 @@ export class BotService implements OnModuleInit {
     const chatId = msg.chat.id;
     const photo = msg.photo[msg.photo.length - 1];
 
-    this.logger.log(`Received photo from [${this.getSenderInfo(msg)}]: ${photo.file_id}`);
+    this.logger.log(
+      `Received photo from [${this.getSenderInfo(msg)}]: ${photo.file_id}`,
+    );
 
     await this.bot.sendMessage(chatId, 'Procesando imagen...');
 
@@ -137,14 +141,15 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async handleAudio(msg: any): Promise<void> {
     const chatId = msg.chat.id;
     const fileId = msg.voice?.file_id || msg.audio?.file_id;
     const mimeType =
       msg.voice?.mime_type || msg.audio?.mime_type || 'audio/ogg';
 
-    this.logger.log(`Received audio from [${this.getSenderInfo(msg)}]: ${fileId}`);
+    this.logger.log(
+      `Received audio from [${this.getSenderInfo(msg)}]: ${fileId}`,
+    );
 
     await this.bot.sendMessage(chatId, 'Procesando audio...');
 

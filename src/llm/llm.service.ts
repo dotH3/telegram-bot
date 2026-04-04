@@ -92,7 +92,6 @@ export class LlmService {
       },
     ];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const completion = await this.openai.chat.completions.create({
       model,
       messages: messages as any,
