@@ -28,14 +28,20 @@ export class LlmService {
   async chat(
     message: string,
     withHistory: ChatMessage[],
+    replyContext?: string,
   ): Promise<{ response: string; cost: number }> {
     const model = this.configService.get<string>(
       'OPENROUTER_MODEL',
       'openai/gpt-3.5-turbo',
     );
 
-    const systemPrompt =
+    let systemPrompt =
       'Eres un asistente conversacional. Responde de forma natural y directa, como en una conversación normal. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
+
+    // If this is a reply to another message, add context to the system prompt
+    if (replyContext) {
+      systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
+    }
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
@@ -66,14 +72,20 @@ export class LlmService {
     imageBase64: string,
     message: string,
     withHistory: ChatMessage[],
+    replyContext?: string,
   ): Promise<{ response: string; cost: number }> {
     const model = this.configService.get<string>(
       'OPENROUTER_MODEL',
       'openai/gpt-4o-mini',
     );
 
-    const systemPrompt =
+    let systemPrompt =
       'Eres un asistente conversacional. Respondes en español de forma natural y directa. Analiza la imagen proporcionada y responde accordingly. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
+
+    // If this is a reply to another message, add context to the system prompt
+    if (replyContext) {
+      systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
+    }
 
     const imageUrl = `data:image/jpeg;base64,${imageBase64}`;
 
@@ -92,7 +104,6 @@ export class LlmService {
       },
     ];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const completion = await this.openai.chat.completions.create({
       model,
       messages: messages as any,
@@ -114,14 +125,20 @@ export class LlmService {
     mimeType: string,
     message: string,
     withHistory: ChatMessage[],
+    replyContext?: string,
   ): Promise<{ response: string; cost: number }> {
     const model = this.configService.get<string>(
       'OPENROUTER_MODEL',
       'openai/gpt-4o-mini',
     );
 
-    const systemPrompt =
+    let systemPrompt =
       'Eres un asistente conversacional. Respondes en español de forma natural y directa. Escucha el audio proporcionado y responde al usuario. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
+
+    // If this is a reply to another message, add context to the system prompt
+    if (replyContext) {
+      systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
+    }
 
     const audioPart = {
       type: 'input_audio',
