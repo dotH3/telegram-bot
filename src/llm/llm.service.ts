@@ -37,7 +37,7 @@ export class LlmService {
 
     let systemPrompt =
       'Eres un asistente conversacional. Responde de forma natural y directa, como en una conversación normal. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
-    
+
     // If this is a reply to another message, add context to the system prompt
     if (replyContext) {
       systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
@@ -81,7 +81,7 @@ export class LlmService {
 
     let systemPrompt =
       'Eres un asistente conversacional. Respondes en español de forma natural y directa. Analiza la imagen proporcionada y responde accordingly. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
-    
+
     // If this is a reply to another message, add context to the system prompt
     if (replyContext) {
       systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
@@ -134,7 +134,7 @@ export class LlmService {
 
     let systemPrompt =
       'Eres un asistente conversacional. Respondes en español de forma natural y directa. Escucha el audio proporcionado y responde al usuario. Sin emojis, sin asteriscos, sin markdown. Texto plano solamente.';
-    
+
     // If this is a reply to another message, add context to the system prompt
     if (replyContext) {
       systemPrompt += `\n\nNota importante: El usuario está respondiendo específicamente al siguiente mensaje: "${replyContext}"`;
